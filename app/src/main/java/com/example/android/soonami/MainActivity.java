@@ -31,6 +31,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
@@ -45,8 +47,8 @@ public class MainActivity extends AppCompatActivity {
 
     /** URL to query the USGS dataset for earthquake information */
     private static final String USGS_REQUEST_URL =
-            "http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2012-01-01&endtime=2012-12-01&minmagnitude=6";
-
+          //  "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2012-01-01&endtime=2012-12-01&minmagnitude=6";
+            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2014-01-01&endtime=2014-12-01&minmagnitude=7";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -110,16 +112,18 @@ public class MainActivity extends AppCompatActivity {
             // Perform HTTP request to the URL and receive a JSON response back
             String jsonResponse = "";
             try {
-                jsonResponse = makeHttpRequest(url);
+                    jsonResponse = makeHttpRequest(url);
             } catch (IOException e) {
                 // TODO Handle the IOException
             }
 
             // Extract relevant fields from the JSON response and create an {@link Event} object
-            Event earthquake = extractFeatureFromJson(jsonResponse);
-
+            Event earthquake=null;
+            if ((jsonResponse!= null) && (jsonResponse.length() >0)) {
+                earthquake = extractFeatureFromJson(jsonResponse);
+            }
             // Return the {@link Event} object as the result fo the {@link TsunamiAsyncTask}
-            return earthquake;
+            return (earthquake != null) ? earthquake : null;
         }
 
         /**
@@ -142,10 +146,14 @@ public class MainActivity extends AppCompatActivity {
             URL url = null;
             try {
                 url = new URL(stringUrl);
+                //url = (new URI(stringUrl)).toURL();
             } catch (MalformedURLException exception) {
                 Log.e(LOG_TAG, "Error with creating URL", exception);
                 return null;
-            }
+            } //catch (URISyntaxException exception){
+              //  Log.e(LOG_TAG, "Error with creating URI URI", exception);
+              //  return null;
+            //}
             return url;
         }
 
@@ -154,6 +162,13 @@ public class MainActivity extends AppCompatActivity {
          */
         private String makeHttpRequest(URL url) throws IOException {
             String jsonResponse = "";
+
+            if (jsonResponse == null){
+                Log.d(LOG_TAG, "jsonresponse == null");
+            }
+            if (url == null){
+                return jsonResponse;
+            }
             HttpURLConnection urlConnection = null;
             InputStream inputStream = null;
             try {
@@ -163,9 +178,16 @@ public class MainActivity extends AppCompatActivity {
                 urlConnection.setConnectTimeout(15000 /* milliseconds */);
                 urlConnection.connect();
                 inputStream = urlConnection.getInputStream();
-                jsonResponse = readFromStream(inputStream);
+                if (urlConnection.getResponseCode() == 200) {
+                    jsonResponse = readFromStream(inputStream);
+                    inputStream = urlConnection.getInputStream();
+                } else {
+                    Log.e(LOG_TAG, "urlconnection response status code is "+urlConnection.getResponseCode()+ " end");
+                }
             } catch (IOException e) {
                 // TODO: Handle the exception
+                Log.e(LOG_TAG, "url connection", e);
+
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -175,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
                     inputStream.close();
                 }
             }
+
             return jsonResponse;
         }
 
